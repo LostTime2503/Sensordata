@@ -1,0 +1,53 @@
+services:
+  db:
+    image: mysql:8
+    container_name: sensor-db
+    environment:
+      MYSQL_ROOT_PASSWORD: passord
+      MYSQL_DATABASE: sensor_demo
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/users.sql:/docker-entrypoint-initdb.d/users.sql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - sensor-net
+
+  api:
+    build: ./api
+    container_name: sensor-api
+    ports:
+      - "3001:3000"
+    environment:
+      DB_HOST: sensor-db
+      DB_USER: root
+      DB_PASS: passord
+      DB_NAME: sensor_demo
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sensor-net
+
+  frontend:
+    build: ./frontend
+    container_name: sensor-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - sensor-net
+
+networks:
+  sensor-net:
+    driver: bridge
